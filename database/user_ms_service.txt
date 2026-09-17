@@ -1,8 +1,9 @@
 CREATE TABLE `user` (
-  `id` int(4) NOT NULL AUTO_INCREMENT,
+  `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
-  `password` varchar(100) NOT NULL,
-  `age` int(4) NOT NULL,
-  `address` varchar(100) NOT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=latin1
+  `password` varchar(255) NOT NULL,
+  `age` int NOT NULL,
+  `address` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
