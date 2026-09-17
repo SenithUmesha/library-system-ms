@@ -1,48 +1,43 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package com.example.bookservicedb;
 
-import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.beans.factory.annotation.Autowired;
-
-/**
- *
- * @author Senith Umesha
- */
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequestMapping("/books")
 public class BookController {
-    
-    @Autowired
-    private BookRepository bookRepository;
- 
-    @GetMapping(path = "/books")
-    public List<Book> getAllBooks(){ 
-        List<Book> booklist = bookRepository.findAll();
-        return booklist;
+
+    private final BookRepository bookRepository;
+
+    public BookController(BookRepository bookRepository) {
+        this.bookRepository = bookRepository;
     }
-    
-    @GetMapping(path = "/books/name/{book_name}")
-    public Book findBookByName(@PathVariable(value = "book_name") String book_name){ 
-        Optional<Book> book = bookRepository.getBookName(book_name);
-        if(book.isPresent()){
-            return book.get();
-        }
-        return null;
+
+    @GetMapping
+    public List<Book> getAllBooks() {
+        return bookRepository.findAll();
     }
-    
-    @GetMapping(path = "/books/author/{book_author}")
-    public Book findBookByAuthor(@PathVariable(value = "book_author") String book_author){ 
-        Optional<Book> book = bookRepository.getBookAuthor(book_author);
-        if(book.isPresent()){
-            return book.get();
+
+    @GetMapping("/search")
+    public ResponseEntity<Book> search(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String author) {
+        Optional<Book> book;
+
+        if (name != null && !name.trim().isEmpty()) {
+            book = bookRepository.getBookName(name.trim());
+        } else if (author != null && !author.trim().isEmpty()) {
+            book = bookRepository.getBookAuthor(author.trim());
+        } else {
+            return ResponseEntity.badRequest().build();
         }
-        return null;
+
+        return book.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }
-
