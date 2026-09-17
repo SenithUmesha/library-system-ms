@@ -1,27 +1,26 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package com.example.userwebapp;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-
-/**
- *
- * @author Senith Umesha
- */
 
 @Controller
 public class UserController {
-    
-    private final static String BASE_URL = "http://localhost:8082";
-    
+
+    private final String userServiceBaseUrl;
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    public UserController(@Value("${services.user.base-url}") String userServiceBaseUrl) {
+        this.userServiceBaseUrl = userServiceBaseUrl;
+    }
+
     @GetMapping(path = "/log-in")
     public String getLogIn(ModelMap model) {
         model.addAttribute("user", new User());
@@ -29,33 +28,51 @@ public class UserController {
     }
 
     @PostMapping(path = "/log-in")
-    public String findUserByNameAndPassword(ModelMap model, @ModelAttribute User user) {
-        RestTemplate restTemplate = new RestTemplate(); 
-        String response = restTemplate.getForObject("http://localhost:8082/users/{name}/{password}", String.class,user.getName(),user.getPassword());
-        if (response != null) {
-            model.addAttribute("name",user.getName());
-            return "dashboard.jsp"; 
+    public String authenticate(ModelMap model, @ModelAttribute User user) {
+        try {
+            ResponseEntity<Void> response = restTemplate.postForEntity(
+                    userServiceBaseUrl + "/users/authenticate",
+                    user,
+                    Void.class);
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                model.addAttribute("name", user.getName());
+                return "dashboard.jsp";
+            }
+        } catch (HttpClientErrorException.Unauthorized error) {
+            model.addAttribute("test", "Incorrect name or password. Please try again.");
+            return "log_in.jsp";
+        } catch (RestClientException error) {
+            model.addAttribute("test", "User service is unavailable. Please try again in a moment.");
+            return "log_in.jsp";
         }
-        else{
-            model.addAttribute("test", "Incorrect name or password, Please try again!");
-            return "log_in.jsp";}
+
+        model.addAttribute("test", "Could not sign in. Please try again.");
+        return "log_in.jsp";
     }
-    
+
     @GetMapping(path = "/create-user")
     public String getCreateUser(ModelMap model) {
         model.addAttribute("user", new User());
         return "create_user.jsp";
     }
-    
+
     @PostMapping(path = "/create-user")
     public String createUser(ModelMap model, @ModelAttribute User user) {
-        RestTemplate restTemplate = new RestTemplate();
-        User createdUser = restTemplate.postForObject(BASE_URL + "/users",user, User.class);
-        model.addAttribute("user", createdUser);
-        model.addAttribute("name",user.getName());
-        return "dashboard.jsp";
+        try {
+            User createdUser = restTemplate.postForObject(
+                    userServiceBaseUrl + "/users",
+                    user,
+                    User.class);
+            model.addAttribute("user", createdUser);
+            model.addAttribute("name", user.getName());
+            return "dashboard.jsp";
+        } catch (RestClientException error) {
+            model.addAttribute("test", "Could not create the user. Check the user service and try again.");
+            return "create_user.jsp";
+        }
     }
-    
+
     @GetMapping(path = "/delete-user")
     public String getDeleteUser(ModelMap model) {
         model.addAttribute("user", new User());
@@ -64,22 +81,30 @@ public class UserController {
 
     @PostMapping(path = "/delete-user")
     public String deleteUser(ModelMap model, @ModelAttribute User user) {
-        RestTemplate restTemplate = new RestTemplate();
-        restTemplate.delete(BASE_URL + "/users?name="+user.getName());
-        return "log_in.jsp";
+        try {
+            restTemplate.delete(userServiceBaseUrl + "/users?name={name}", user.getName());
+            return "log_in.jsp";
+        } catch (RestClientException error) {
+            model.addAttribute("test", "Could not delete the user. Check the user service and try again.");
+            return "delete_user.jsp";
+        }
     }
-    
+
     @GetMapping(path = "/edit-user")
     public String getEditUser(ModelMap model) {
         model.addAttribute("user", new User());
         return "edit_user.jsp";
     }
-    
+
     @PostMapping(path = "/edit-user")
     public String editUser(ModelMap model, @ModelAttribute User user) {
-        RestTemplate restTemplate = new RestTemplate();
-        restTemplate.put(BASE_URL + "/users/"+user.getId(),user);
-        model.addAttribute("user", user);
-        return "log_in.jsp";
+        try {
+            restTemplate.put(userServiceBaseUrl + "/users/{id}", user, user.getId());
+            model.addAttribute("user", user);
+            return "log_in.jsp";
+        } catch (RestClientException error) {
+            model.addAttribute("test", "Could not update the user. Check the user service and try again.");
+            return "edit_user.jsp";
+        }
     }
 }
